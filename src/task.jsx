@@ -14,14 +14,15 @@ const Container = styled.div`
 const Handle = styled.div`
   width: 20px;
   heigth: 20px;
-  background-color: orange;
+  background-color: ${props => props.selected ? 'orange' : 'green' }
   border-radius: 4px;
   margin-right: 8px;
 `;
 
 export default class Task extends React.Component {
   render() {
-    const isDragDisabled = this.props.task.id === 'task-1'
+    console.log(this.props.selected)
+    const isDragDisabled = false
     return (
       <Draggable 
       draggableId={this.props.task.id} 
@@ -35,7 +36,7 @@ export default class Task extends React.Component {
             isDragging={snapshot.isDragging}
             isDragDisabled={isDragDisabled}
           >
-            <Handle {...provided.dragHandleProps} />
+            <Handle {...provided.dragHandleProps} selected={this.props.selected} />
             {this.props.task.content}
           </Container>
         )}

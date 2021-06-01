@@ -26,6 +26,10 @@ const TaskList = styled.div`
 `;
 
 class InnerList extends React.Component {
+  constructor(props){
+    super(props)
+  }
+
   shouldComponentUpdate(nextProps) {
     if (nextProps.tasks === this.props.tasks) {
       return false;
@@ -33,14 +37,17 @@ class InnerList extends React.Component {
     return true;
   }
   render() {
+    const selectedTaskIds = this.props.selectedTaskIds
+    console.log(this.props.selectedTaskIds)
     return this.props.tasks.map((task, index) => (
-      <Task key={task.id} task={task} index={index} />
+      <Task key={task.id} task={task} index={index} selected={selectedTaskIds.includes(task.id)} />
     ));
   }
 }
 
 export default class Column extends React.Component {
   render() {
+    const selectedTaskIds = this.props.selectedTaskIds
     return (
       <Draggable draggableId={this.props.column.id} index={this.props.index}>
         {provided => (
@@ -55,7 +62,7 @@ export default class Column extends React.Component {
                   {...provided.droppableProps}
                   isDraggingOver={snapshot.isDraggingOver}
                 >
-                  <InnerList tasks={this.props.tasks} />
+                  <InnerList tasks={this.props.tasks} selectedTaskIds={selectedTaskIds} />
                   {provided.placeholder}
                 </TaskList>
               )}

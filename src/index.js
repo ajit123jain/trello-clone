@@ -11,12 +11,18 @@ const Container = styled.div`
   display: flex;
 `;
 
+const withNewTaskIds = (column, taskIds) => ({
+    id: column.id,
+    title: column.title,
+    taskIds,
+  });
+
 
 class InnerList extends React.PureComponent {
   render(){
     const {column, taskMap, index} = this.props;
     const tasks = column.taskIds.map(taskId => taskMap[taskId])
-    return <Column column={column} tasks={tasks} index={index}/>  
+    return <Column column={column} tasks={tasks} index={index} selectedTaskIds={this.props.selectedTaskIds}/>  
   }
 }
 
@@ -25,12 +31,24 @@ class App extends React.Component {
   {
     super(props)
     this.state = {
-      dataState: initialData
+      dataState: initialData,
+      selectedTaskIds: ['task-1','task-2'],
+      draggingTaskId: null
     }
   }
-  onDragStart = () => {
+  onDragStart = (start) => {
     document.body.style.color = 'orange';
     document.body.style.transition = 'background-color 0.2s ease';
+    const draggableId = start.draggableId;
+    const selected = this.state.selectedTaskIds.includes(draggableId)
+    if(!selected){
+      this.setState({
+        selectedTaskIds: [],
+      });
+    }
+    this.setState({
+      draggingTaskId: draggableId
+    });
   }
 
   onDragUpdate = update => {
@@ -38,6 +56,20 @@ class App extends React.Component {
     const opacity = destination ? destination.index / Object.keys(this.state.dataState.tasks).length : 0;
     document.body.style.color = `rgba(153,141,217, ${opacity})`;
   }
+
+  getHomeColumn = (dataState, taskId) => {
+    const columnId = this.state.dataState.columnOrder.find(id => {
+      const column = this.state.dataState.columns[id];
+      return column.taskIds.includes(taskId);
+    });
+
+    // invariant(columnId, 'Count not find column for task');
+    console.log('Count not find column for task');
+    return this.state.dataState.columns[columnId];
+  };
+
+  
+
 
   onDragEnd = result => {
     document.body.style.color = 'inherit';
@@ -52,6 +84,105 @@ class App extends React.Component {
     ){
       return ; 
     }
+
+    //condition to handle mulitple selections 
+    if(this.state.selectedTaskIds.length > 1){
+      const start = this.state.dataState.columns[source.droppableId];
+      const dragged = start.taskIds[source.index];
+
+      const insertAtIndex = (() => {
+        const destinationIndexOffset = this.state.selectedTaskIds.reduce(
+        (previous, current) => {
+          if (current === dragged) {
+            return previous;
+          }
+          const final = this.state.dataState.columns[destination.droppableId];
+          const column = this.getHomeColumn(this.state.dataState, current);
+
+          if (column !== final) {
+            return previous;
+          }
+
+          const index = column.taskIds.indexOf(current);
+          if (index >= destination.index) {
+            return previous;
+          }
+
+           return previous + 1;
+        }, 0)
+
+        const result = destination.index - destinationIndexOffset;
+        return result;
+      })();
+
+      const orderedSelectedTaskIds = [...this.state.selectedTaskIds];
+      orderedSelectedTaskIds.sort((a, b) => {
+        // moving the dragged item to the top of the list
+        if (a === dragged) {
+          return -1;
+        }
+        if (b === dragged) {
+          return 1;
+        }
+
+         // sorting by their natural indexes
+        const columnForA = this.getHomeColumn(this.state.dataState, a);
+        const indexOfA = columnForA.taskIds.indexOf(a);
+        const columnForB = this.getHomeColumn(this.state.dataState, b);
+        const indexOfB = columnForB.taskIds.indexOf(b);
+
+        if (indexOfA !== indexOfB) {
+          return indexOfA - indexOfB;
+        }
+
+        // sorting by their order in the selectedTaskIds list
+        return -1;
+      });
+
+      // we need to remove all of the selected tasks from their columns
+      const withRemovedTasks = this.state.dataState.columnOrder.reduce(
+        (previous: ColumnMap, columnId: Id): ColumnMap => {
+          const column: Column = this.state.dataState.columns[columnId];
+
+          // remove the id's of the items that are selected
+          const remainingTaskIds = column.taskIds.filter(
+            (id) => !this.state.selectedTaskIds.includes(id),
+          );
+
+          previous[column.id] = withNewTaskIds(column, remainingTaskIds);
+          return previous;
+        },
+        this.state.dataState.columns,
+      );
+
+      const final: Column = withRemovedTasks[destination.droppableId];
+      const withInserted = (() => {
+        const base = [...final.taskIds];
+        base.splice(insertAtIndex, 0, ...orderedSelectedTaskIds);
+        return base;
+      })();
+          // insert all selected tasks into final column
+      const withAddedTasks = {
+        ...withRemovedTasks,
+        [final.id]: withNewTaskIds(final, withInserted),
+      };
+
+      const updated = {
+        ...this.state.dataState,
+        columns: withAddedTasks,
+      };
+
+      this.setState({
+        dataState: updated,
+        selectedTaskIds: orderedSelectedTaskIds
+      })
+      // return {
+      //   entities: updated,
+      //   selectedTaskIds: orderedSelectedTaskIds,
+      // };
+
+      return ; 
+    } 
 
     if(type === 'column')
     {
@@ -141,7 +272,7 @@ class App extends React.Component {
             >
             {this.state.dataState.columnOrder.map((columnId, index) => {
               const column = this.state.dataState.columns[columnId];
-              return <InnerList key={column.id} column={column} taskMap={this.state.dataState.tasks} index={index} />;
+              return <InnerList key={column.id} column={column} taskMap={this.state.dataState.tasks} index={index} selectedTaskIds={this.state.selectedTaskIds} />;
             })}
             {provided.placeholder}
             </Container>
